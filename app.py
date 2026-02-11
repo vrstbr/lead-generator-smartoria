@@ -390,18 +390,33 @@ Important:
         for model_name in model_candidates:
             try:
                 model = genai.GenerativeModel("gemini-2.5-flash")
-                response = model.generate_content(prompt)
-                st.write("Várakozás a kvóta miatt (5 mp)...")
-                time.sleep(15)  
-                break
-            except Exception as e_inner:
-                msg = str(e_inner)
-                last_error = e_inner
-                # If the model is not found / not supported, try the next candidate
-                if "404" in msg and "not found for API version" in msg:
-                    continue
-                # Other errors should be handled by the outer except
-                raise
+                import time
+from google.api_core import exceptions # Ezt írd a fájl legtetejére az importokhoz!
+
+# ... a cikluson belül ...
+
+max_retries = 3
+for attempt in range(max_retries):
+    try:
+        # Próbáljuk meg hívni a Geminit
+        response = model.generate_content(prompt_text)
+        
+        # Ha sikerült, lépjünk ki a próbálkozós ciklusból
+        break 
+        
+    except Exception as e:
+        if "429" in str(e):
+            wait_time = 30 # Most már 30 másodpercet várunk büntetés esetén
+            st.warning(f"Túl sok kérés (429). Várakozás {wait_time} másodpercig...")
+            time.sleep(wait_time)
+            # És újrapróbálja a ciklus miatt...
+        else:
+            # Ha más hiba van (nem 429), akkor azt tényleg dobja el
+            st.error(f"Hiba történt: {e}")
+            response = None
+            break
+
+   # ... innen folytatódik a kód, ha megvan a response ...
 
         if response is None:
             st.warning(f"⚠️ Gemini extraction hiba (nincs elérhető modell): {last_error}")
